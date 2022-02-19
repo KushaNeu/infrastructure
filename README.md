@@ -1,5 +1,11 @@
 # infrastructure
 
+
+Name: Siva Dheeraj Reddy
+NUID: 001524090
+EMAIL: obulam.s@northeastern.edu
+
+
 Create & Setup GitHub Repository for AWS Infrastructure
 Create (Links to an external site.) a new private GitHub repository in the GitHub organization you created.
 GitHub repository name must be infrastructure.
