@@ -449,7 +449,15 @@
                   "Fn::Sub": "export bucketName='${S3BucketRandomString}.dheerajreddy.me'"
                 },
                 {
-                  "Fn::Sub": "export dbHost='${dbhostname}'"
+                  "Fn::Join": [
+                    "",
+                    [
+                      "export dbHost=",
+                      {
+                        "Fn::GetAtt": "RDSInstance.Endpoint.Address"
+                      }
+                    ]
+                  ]
                 },
                 {
                   "Fn::Sub": "export dbUser='${MysqlUserName}'"
@@ -461,7 +469,7 @@
                 "chmod 777 /etc/profile.d/webserver_env.sh",
                 "sudo systemctl restart application_boot.service"
               ]
-            ],"dbhostname":{"Fn::GetAtt":"RDSInstance.Endpoint.Address"}
+            ]
           }
         },
         "Tags": [
