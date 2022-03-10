@@ -1,6 +1,6 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "Netowrks and cloud computing - infrastructure as a code -assignment 3",
+  "Description": "Netowrks and cloud computing - infrastructure as a code -assignment 5",
   "Parameters": {
     "Name": {
       "Type": "String",
@@ -29,17 +29,17 @@
     "DBSubnet1CIDR": {
       "Type": "String",
       "Description": "IP Address range for the Subnet 1",
-      "Default": "10.1.1.0/24"
+      "Default": "10.1.4.0/24"
     },
     "DBSubnet2CIDR": {
       "Type": "String",
       "Description": "IP Address range for the Subnet 2",
-      "Default": "10.1.2.0/24"
+      "Default": "10.1.5.0/24"
     },
     "DBSubnet3CIDR": {
       "Type": "String",
       "Description": "IP Address range for the Subnet 3",
-      "Default": "10.1.3.0/24"
+      "Default": "10.1.6.0/24"
     },
     "AmiId": {
       "Type": "String",
@@ -63,7 +63,7 @@
     "MysqlPassword": {
       "Type": "String",
       "Description": "password for mysql",
-      "Default": ""
+      "Default": "adminadmin"
     }
   },
   "Resources": {
@@ -332,7 +332,7 @@
       }
     },
     "DBSubnetGroup": {
-      "Type": "AWS::EC2::DBSubnetGroup",
+      "Type": "AWS::RDS::DBSubnetGroup",
       "Properties": {
         "DBSubnetGroupDescription": "Subnet group for db server",
         "SubnetIds": [
@@ -441,7 +441,7 @@
         "UserData": {
           "Fn::Base64": {
             "Fn::Join": [
-              "",
+              "\n",
               [
                 "#!/bin/bash",
                 "cat > /etc/profile.d/webserver_env.sh << 'EOF'",
@@ -449,7 +449,7 @@
                   "Fn::Sub": "export bucketName='${S3BucketRandomString}.dheerajreddy.me'"
                 },
                 {
-                  "Fn::Sub": "export dbHost='${MysqlHost}'"
+                  "Fn::Sub": "export dbHost='${dbhostname}'"
                 },
                 {
                   "Fn::Sub": "export dbUser='${MysqlUserName}'"
@@ -460,15 +460,8 @@
                 "EOF",
                 "chmod 777 /etc/profile.d/webserver_env.sh",
                 "sudo systemctl restart application_boot.service"
-              ],
-              [
-                {
-                  "MysqlHost": {
-                    "Fn::GetAtt": "RDSInstance.Endpoint.Address"
-                  }
-                }
               ]
-            ]
+            ],"dbhostname":{"Fn::GetAtt":"RDSInstance.Endpoint.Address"}
           }
         },
         "Tags": [
@@ -487,17 +480,13 @@
           "Version": "2012-10-17",
           "Statement": [
             {
-              "Effect": "Allow"
-            },
-            {
+              "Effect": "Allow",
               "Principal": {
                 "Service": [
                   "ec2.amazonaws.com"
                 ]
-              }
-            },
-            {
-              "Actions": [
+              },
+              "Action": [
                 "sts:AssumeRole"
               ]
             }
@@ -505,23 +494,17 @@
         },
         "Policies": [
           {
-            "PolicyName": "S3Access"
-          },
-          {
+            "PolicyName": "S3Access",
             "PolicyDocument": {
               "Version": "2012-10-17",
               "Statement": [
                 {
-                  "Effect": "Allow"
-                },
-                {
+                  "Effect": "Allow",
                   "Action": [
                     "s3:PutObject",
                     "s3:GetObject",
                     "s3:DeleteObject"
-                  ]
-                },
-                {
+                  ],
                   "Resource": [
                     {
                       "Fn::Sub": "arn:aws:s3:::${S3BucketRandomString}.dheerajreddy.me"
@@ -548,7 +531,7 @@
       "Properties": {
         "Roles": [
           {
-            "Ref": "EC2CSYE6225IamRole"
+            "Ref": "IAMRoleForAPPServer"
           }
         ]
       }
@@ -557,7 +540,7 @@
       "Type": "AWS::S3::Bucket",
       "Properties": {
         "BucketName": {
-          "Sub": "${S3BucketRandomString}.dheerajreddy.me"
+          "Fn::Sub": "${S3BucketRandomString}.dheerajreddy.me"
         },
         "AccessControl": "Private",
         "BucketEncryption": {
@@ -617,7 +600,7 @@
         },
         "VPCSecurityGroups": [
           {
-            "Fn::Sub": "DBSecurityGroup.GroupId"
+            "Fn::GetAtt": "DBSecurityGroup.GroupId"
           }
         ],
         "DBSubnetGroupName": {
