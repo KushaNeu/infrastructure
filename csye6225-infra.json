@@ -508,7 +508,7 @@
                   "Fn::Sub": "export dbPass='${MysqlPassword}'"
                 },
                 "EOF",
-                "\"\" /home/ec2-user/webserver/mysql.config> "
+                "\"\" /home/ec2-user/webserver/mysql.config> ",
                 "cat >> /home/ec2-user/webserver/mysql.config << 'EOF'",
                 {
                     "Fn::Join": ["",["{\"bucketName\":\"",{"Fn::GetAtt": "randomCalc.Output"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me\","]]
