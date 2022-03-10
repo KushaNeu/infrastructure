@@ -475,7 +475,7 @@
                     [
                       "export bucketName=",
                       {
-                        "Fn::GetAtt": ""
+                        "Fn::GetAtt": "randomCalc.Output"
                       },
                       {
                         "Fn::FindInMap": [
