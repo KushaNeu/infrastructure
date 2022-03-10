@@ -64,6 +64,21 @@
       "Type": "String",
       "Description": "password for mysql",
       "Default": "adminadmin"
+    },
+    "User": {
+      "Type": "String",
+      "Description": "password for mysql",
+      "Default": "dev"
+    }
+  },
+  "Mappings": {
+    "UserS3Map": {
+      "dev": {
+        "name": "dev"
+      },
+      "demo": {
+        "name": "prod"
+      }
     }
   },
   "Resources": {
@@ -245,6 +260,12 @@
         ]
       }
     },
+    "randomCalc":{
+      "Type":"AWSUtility::CloudFormation::CommandRunner",
+      "Properties":{
+        "Command":"openssl rand -base64 32 | head -c 20"
+      }
+    },
     "InternetGateway": {
       "Type": "AWS::EC2::InternetGateway",
       "Properties": {
@@ -409,6 +430,9 @@
         "InstanceType": {
           "Ref": "ApplicationInstanceType"
         },
+        "IamInstanceProfile": {
+          "Ref": "IAMInstanceProfile"
+        },
         "NetworkInterfaces": [
           {
             "AssociatePublicIpAddress": true,
@@ -446,7 +470,25 @@
                 "#!/bin/bash",
                 "cat > /etc/profile.d/webserver_env.sh << 'EOF'",
                 {
-                  "Fn::Sub": "export bucketName='${S3BucketRandomString}.dheerajreddy.me'"
+                  "Fn::Join": [
+                    "",
+                    [
+                      "export bucketName=",
+                      {
+                        "Fn::GetAtt": ""
+                      },
+                      {
+                        "Fn::FindInMap": [
+                          "UserS3Map",
+                          {
+                            "Ref": "User"
+                          },
+                          "name"
+                        ]
+                      },
+                      ".dheerajreddy.me'"
+                    ]
+                  ]
                 },
                 {
                   "Fn::Join": [
@@ -466,6 +508,31 @@
                   "Fn::Sub": "export dbPass='${MysqlPassword}'"
                 },
                 "EOF",
+                "\"\" /home/ec2-user/webserver/mysql.config> "
+                "cat >> /home/ec2-user/webserver/mysql.config << 'EOF'",
+                {
+                    "Fn::Join": ["",["{\"bucketName\":\"",{"Fn::GetAtt": "randomCalc.Output"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me\","]]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "\"dbHost\":\"",
+                      {
+                        "Fn::GetAtt": "RDSInstance.Endpoint.Address"
+                      },
+                      "\","
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Sub": "\"dbUser\":\"${MysqlUserName}\","
+                },
+                {
+                  "Fn::Sub": "\"dbPass\":\"${MysqlPassword}\"}"
+                },
+                "EOF",
+                "chmod 777 /home/ec2-user/webserver/mysql.config",
                 "chmod 777 /etc/profile.d/webserver_env.sh",
                 "sudo systemctl restart application_boot.service"
               ]
@@ -515,10 +582,10 @@
                   ],
                   "Resource": [
                     {
-                      "Fn::Sub": "arn:aws:s3:::${S3BucketRandomString}.dheerajreddy.me"
+                      "Fn::Join": ["",["arn:aws:s3:::",{"Fn::GetAtt": "randomCalc.Output"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me"]]
                     },
                     {
-                      "Fn::Sub": "arn:aws:s3:::${S3BucketRandomString}.dheerajreddy.me/*"
+                      "Fn::Join": ["",["arn:aws:s3:::",{"Fn::GetAtt": "randomCalc.Output"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me/*"]]
                     }
                   ]
                 }
@@ -548,7 +615,7 @@
       "Type": "AWS::S3::Bucket",
       "Properties": {
         "BucketName": {
-          "Fn::Sub": "${S3BucketRandomString}.dheerajreddy.me"
+          "Fn::Join": ["",[{"Fn::GetAtt": "randomCalc.Output"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me'"]]
         },
         "AccessControl": "Private",
         "BucketEncryption": {
