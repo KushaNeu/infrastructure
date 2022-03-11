@@ -53,7 +53,7 @@
     "S3BucketRandomString": {
       "Type": "String",
       "Description": "Random string passed as param for s3 bucket name",
-      "Default": "dev"
+      "Default": "asdfasdfasdf"
     },
     "MysqlUserName": {
       "Type": "String",
@@ -258,12 +258,6 @@
             }
           }
         ]
-      }
-    },
-    "randomCalc":{
-      "Type":"AWSUtility::CloudFormation::CommandRunner",
-      "Properties":{
-        "Command":"openssl rand -base64 32 | head -c 20"
       }
     },
     "InternetGateway": {
@@ -475,7 +469,7 @@
                     [
                       "export bucketName=",
                       {
-                        "Fn::GetAtt": "randomCalc.Output"
+                        "Ref": "S3BucketRandomString"
                       },
                       {
                         "Fn::FindInMap": [
@@ -508,10 +502,11 @@
                   "Fn::Sub": "export dbPass='${MysqlPassword}'"
                 },
                 "EOF",
-                "\"\" /home/ec2-user/webserver/mysql.config> ",
+                "rm  /home/ec2-user/webserver/mysql.config",
+                "touch  /home/ec2-user/webserver/mysql.config",
                 "cat >> /home/ec2-user/webserver/mysql.config << 'EOF'",
                 {
-                    "Fn::Join": ["",["{\"bucketName\":\"",{"Fn::GetAtt": "randomCalc.Output"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me\","]]
+                    "Fn::Join": ["",["{\"bucketName\":\"",{"Ref": "S3BucketRandomString"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me\","]]
                 },
                 {
                   "Fn::Join": [
@@ -582,10 +577,10 @@
                   ],
                   "Resource": [
                     {
-                      "Fn::Join": ["",["arn:aws:s3:::",{"Fn::GetAtt": "randomCalc.Output"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me"]]
+                      "Fn::Join": ["",["arn:aws:s3:::",{"Ref": "S3BucketRandomString"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me"]]
                     },
                     {
-                      "Fn::Join": ["",["arn:aws:s3:::",{"Fn::GetAtt": "randomCalc.Output"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me/*"]]
+                      "Fn::Join": ["",["arn:aws:s3:::",{"Ref": "S3BucketRandomString"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me/*"]]
                     }
                   ]
                 }
@@ -615,7 +610,7 @@
       "Type": "AWS::S3::Bucket",
       "Properties": {
         "BucketName": {
-          "Fn::Join": ["",[{"Fn::GetAtt": "randomCalc.Output"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me'"]]
+          "Fn::Join": ["",[{"Ref": "S3BucketRandomString"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me"]]
         },
         "AccessControl": "Private",
         "BucketEncryption": {
