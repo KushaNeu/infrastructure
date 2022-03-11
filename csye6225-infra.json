@@ -1,312 +1,698 @@
 {
-    "AWSTemplateFormatVersion": "2010-09-09",
-    "Description": "Netowrks and cloud computing - infrastructure as a code -assignment 3",
-    "Parameters": {
-        "Name": {
-            "Type": "String",
-            "Description": "Default Name for the infrastructure"
-        },
-        "VPCCIDR": {
-            "Type": "String",
-            "Description": "IP Address range for the VPC",
-            "Default": "10.1.0.0/16"
-        },
-        "Subnet1CIDR": {
-            "Type": "String",
-            "Description": "IP Address range for the Subnet 1",
-            "Default": "10.1.1.0/24"
-        },
-        "Subnet2CIDR": {
-            "Type": "String",
-            "Description": "IP Address range for the Subnet 2",
-            "Default": "10.1.2.0/24"
-        },
-        "Subnet3CIDR": {
-            "Type": "String",
-            "Description": "IP Address range for the Subnet 3",
-            "Default": "10.1.3.0/24"
-        },
-        "AmiId":{
-          "Type":"String",
-          "Description":"Ami instance id"
-        },
-        "ApplicationInstanceType":{
-          "Type":"String",
-          "Description":"ami type",
-          "Default":"t2.micro"
-        }
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Netowrks and cloud computing - infrastructure as a code -assignment 5",
+  "Parameters": {
+    "Name": {
+      "Type": "String",
+      "Description": "Default Name for the infrastructure"
     },
-    "Resources": {
-        "VPC": {
-            "Type": "AWS::EC2::VPC",
-            "Properties": {
-                "CidrBlock": {
-                    "Ref": "VPCCIDR"
-                },
-                "Tags":
-                [
-                    {
-                        "Key": "Name",
-                        "Value": {
-                            "Ref": "Name"
-                        }
-                    }
-                ]
-            }
+    "VPCCIDR": {
+      "Type": "String",
+      "Description": "IP Address range for the VPC",
+      "Default": "10.1.0.0/16"
+    },
+    "Subnet1CIDR": {
+      "Type": "String",
+      "Description": "IP Address range for the Subnet 1",
+      "Default": "10.1.1.0/24"
+    },
+    "Subnet2CIDR": {
+      "Type": "String",
+      "Description": "IP Address range for the Subnet 2",
+      "Default": "10.1.2.0/24"
+    },
+    "Subnet3CIDR": {
+      "Type": "String",
+      "Description": "IP Address range for the Subnet 3",
+      "Default": "10.1.3.0/24"
+    },
+    "DBSubnet1CIDR": {
+      "Type": "String",
+      "Description": "IP Address range for the Subnet 1",
+      "Default": "10.1.4.0/24"
+    },
+    "DBSubnet2CIDR": {
+      "Type": "String",
+      "Description": "IP Address range for the Subnet 2",
+      "Default": "10.1.5.0/24"
+    },
+    "DBSubnet3CIDR": {
+      "Type": "String",
+      "Description": "IP Address range for the Subnet 3",
+      "Default": "10.1.6.0/24"
+    },
+    "AmiId": {
+      "Type": "String",
+      "Description": "Ami instance id"
+    },
+    "ApplicationInstanceType": {
+      "Type": "String",
+      "Description": "ami type",
+      "Default": "t2.micro"
+    },
+    "S3BucketRandomString": {
+      "Type": "String",
+      "Description": "Random string passed as param for s3 bucket name",
+      "Default": "asdfasdfasdf"
+    },
+    "MysqlUserName": {
+      "Type": "String",
+      "Description": "user name for mysql",
+      "Default": "root"
+    },
+    "MysqlPassword": {
+      "Type": "String",
+      "Description": "password for mysql",
+      "Default": "adminadmin"
+    },
+    "User": {
+      "Type": "String",
+      "Description": "password for mysql",
+      "Default": "dev"
+    }
+  },
+  "Mappings": {
+    "UserS3Map": {
+      "dev": {
+        "name": "dev"
+      },
+      "demo": {
+        "name": "prod"
+      }
+    }
+  },
+  "Resources": {
+    "VPC": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": {
+          "Ref": "VPCCIDR"
         },
-        "Subnet1": {
-            "Type": "AWS::EC2::Subnet",
-            "Properties": {
-                "VpcId": {
-                    "Ref": "VPC"
-                },
-                "AvailabilityZone": {
-                    "Fn::Select":
-                    [
-                        "0",
-                        {
-                            "Fn::GetAZs": ""
-                        }
-                    ]
-                },
-                "CidrBlock": {
-                    "Ref": "Subnet1CIDR"
-                },
-                "Tags":
-                [
-                    {
-                        "Key": "Name",
-                        "Value": {
-                            "Fn::Sub": "${Name} Subnet 1 in AvailabilityZone 0"
-                        }
-                    }
-                ]
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Ref": "Name"
             }
+          }
+        ]
+      }
+    },
+    "Subnet1": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
         },
-        "Subnet2": {
-            "Type": "AWS::EC2::Subnet",
-            "Properties": {
-                "VpcId": {
-                    "Ref": "VPC"
-                },
-                "AvailabilityZone": {
-                    "Fn::Select":
-                    [
-                        "1",
-                        {
-                            "Fn::GetAZs": ""
-                        }
-                    ]
-                },
-                "CidrBlock": {
-                    "Ref": "Subnet2CIDR"
-                },
-                "Tags":
-                [
-                    {
-                        "Key": "Name",
-                        "Value": {
-                            "Fn::Sub": "${Name} Subnet 2 in AvailabilityZone 1"
-                        }
-                    }
-                ]
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "0",
+            {
+              "Fn::GetAZs": ""
             }
+          ]
         },
-        "Subnet3": {
-            "Type": "AWS::EC2::Subnet",
-            "Properties": {
-                "VpcId": {
-                    "Ref": "VPC"
-                },
-                "AvailabilityZone": {
-                    "Fn::Select":
-                    [
-                        "2",
-                        {
-                            "Fn::GetAZs": ""
-                        }
-                    ]
-                },
-                "CidrBlock": {
-                    "Ref": "Subnet3CIDR"
-                },
-                "Tags":
-                [
-                    {
-                        "Key": "Name",
-                        "Value": {
-                            "Fn::Sub": "${Name} Subnet 3 in AvailabilityZone 2"
-                        }
-                    }
-                ]
+        "CidrBlock": {
+          "Ref": "Subnet1CIDR"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": "${Name} Subnet 1 in AvailabilityZone 0"
             }
+          }
+        ]
+      }
+    },
+    "Subnet2": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
         },
-        "InternetGateway": {
-            "Type": "AWS::EC2::InternetGateway",
-            "Properties": {
-                "Tags":
-                [
-                    {
-                        "Key": "Name",
-                        "Value": {
-                            "Ref": "Name"
-                        }
-                    }
-                ]
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "1",
+            {
+              "Fn::GetAZs": ""
             }
+          ]
         },
-        "VPCInternetGateway": {
-            "Type": "AWS::EC2::VPCGatewayAttachment",
-            "Properties": {
-                "InternetGatewayId": {
-                    "Ref": "InternetGateway"
-                },
-                "VpcId": {
-                    "Ref": "VPC"
-                }
+        "CidrBlock": {
+          "Ref": "Subnet2CIDR"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": "${Name} Subnet 2 in AvailabilityZone 1"
             }
+          }
+        ]
+      }
+    },
+    "Subnet3": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
         },
-        "PublicRouteTable": {
-            "Type": "AWS::EC2::RouteTable",
-            "Properties": {
-                "VpcId": {
-                    "Ref": "VPC"
-                },
-                "Tags":
-                [
-                    {
-                        "Key": "Name",
-                        "Value": {
-                            "Fn::Sub": "${Name} Public Routing Table"
-                        }
-                    }
-                ]
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "2",
+            {
+              "Fn::GetAZs": ""
             }
+          ]
         },
-        "PublicRoute": {
-            "Type": "AWS::EC2::Route",
-            "DependsOn": "VPCInternetGateway",
-            "Properties": {
-                "RouteTableId": {
-                    "Ref": "PublicRouteTable"
-                },
-                "DestinationCidrBlock": "0.0.0.0/0",
-                "GatewayId": {
-                    "Ref": "InternetGateway"
-                }
+        "CidrBlock": {
+          "Ref": "Subnet3CIDR"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": "${Name} Subnet 3 in AvailabilityZone 2"
             }
+          }
+        ]
+      }
+    },
+    "DBSubnet1": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
         },
-        "Subnet1RouteTableAssociation": {
-            "Type": "AWS::EC2::SubnetRouteTableAssociation",
-            "Properties": {
-                "RouteTableId": {
-                    "Ref": "PublicRouteTable"
-                },
-                "SubnetId": {
-                    "Ref": "Subnet1"
-                }
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "0",
+            {
+              "Fn::GetAZs": ""
             }
+          ]
         },
-        "Subnet2RouteTableAssociation": {
-            "Type": "AWS::EC2::SubnetRouteTableAssociation",
-            "Properties": {
-                "RouteTableId": {
-                    "Ref": "PublicRouteTable"
-                },
-                "SubnetId": {
-                    "Ref": "Subnet2"
-                }
+        "CidrBlock": {
+          "Ref": "DBSubnet1CIDR"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": "${Name} DB Subnet 1 in AvailabilityZone 0"
             }
+          }
+        ]
+      }
+    },
+    "DBSubnet2": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
         },
-        "Subnet3RouteTableAssociation": {
-            "Type": "AWS::EC2::SubnetRouteTableAssociation",
-            "Properties": {
-                "RouteTableId": {
-                    "Ref": "PublicRouteTable"
-                },
-                "SubnetId": {
-                    "Ref": "Subnet3"
-                }
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "1",
+            {
+              "Fn::GetAZs": ""
             }
+          ]
         },
-        "ApplicationSecurityGroup":{
-          "Type" :"AWS::EC2::SecurityGroup",
-          "Properties":{
-            "GroupDescription":"Enabling ssh and port access",
-            "VpcId" :{
-              "Ref":"VPC"
+        "CidrBlock": {
+          "Ref": "DBSubnet2CIDR"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": "${Name} DB Subnet 2 in AvailabilityZone 1"
+            }
+          }
+        ]
+      }
+    },
+    "DBSubnet3": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "2",
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "CidrBlock": {
+          "Ref": "DBSubnet3CIDR"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": "${Name} DB Subnet 3 in AvailabilityZone 2"
+            }
+          }
+        ]
+      }
+    },
+    "InternetGateway": {
+      "Type": "AWS::EC2::InternetGateway",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Ref": "Name"
+            }
+          }
+        ]
+      }
+    },
+    "VPCInternetGateway": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "InternetGatewayId": {
+          "Ref": "InternetGateway"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      }
+    },
+    "PublicRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": "${Name} Public Routing Table"
+            }
+          }
+        ]
+      }
+    },
+    "PublicRoute": {
+      "Type": "AWS::EC2::Route",
+      "DependsOn": "VPCInternetGateway",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "InternetGateway"
+        }
+      }
+    },
+    "Subnet1RouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "Subnet1"
+        }
+      }
+    },
+    "Subnet2RouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "Subnet2"
+        }
+      }
+    },
+    "Subnet3RouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "Subnet3"
+        }
+      }
+    },
+    "DBSubnetGroup": {
+      "Type": "AWS::RDS::DBSubnetGroup",
+      "Properties": {
+        "DBSubnetGroupDescription": "Subnet group for db server",
+        "SubnetIds": [
+          {
+            "Ref": "DBSubnet1"
+          },
+          {
+            "Ref": "DBSubnet2"
+          },
+          {
+            "Ref": "DBSubnet3"
+          }
+        ]
+      }
+    },
+    "ApplicationSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Enabling ssh and port access",
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 22,
+            "ToPort": 22,
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 80,
+            "ToPort": 80,
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 443,
+            "ToPort": 443,
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 8080,
+            "ToPort": 8080,
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+    "DBSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Enabling only port access",
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 3306,
+            "ToPort": 3306,
+            "SourceSecurityGroupId": {
+              "Ref": "ApplicationSecurityGroup"
+            }
+          }
+        ]
+      }
+    },
+    "ApplicationEC2Instances": {
+      "Type": "AWS::EC2::Instance",
+      "DependsOn": "PublicRoute",
+      "Properties": {
+        "InstanceType": {
+          "Ref": "ApplicationInstanceType"
+        },
+        "IamInstanceProfile": {
+          "Ref": "IAMInstanceProfile"
+        },
+        "NetworkInterfaces": [
+          {
+            "AssociatePublicIpAddress": true,
+            "DeleteOnTermination": true,
+            "SubnetId": {
+              "Ref": "Subnet1"
             },
-            "SecurityGroupIngress":[
-                {
-                  "IpProtocol" : "tcp",
-                  "FromPort" : 22,
-                  "ToPort" : 22,
-                  "CidrIp" : "0.0.0.0/0"
-              },
+            "DeviceIndex": 0,
+            "GroupSet": [
               {
-                  "IpProtocol" : "tcp",
-                  "FromPort" : 80,
-                  "ToPort" : 80,
-                  "CidrIp" : "0.0.0.0/0"
-              },
-              {
-                  "IpProtocol" : "tcp",
-                  "FromPort" : 443,
-                  "ToPort" : 443,
-                  "CidrIp" : "0.0.0.0/0"
-              },
-              {
-                  "IpProtocol" : "tcp",
-                  "FromPort" : 8080,
-                  "ToPort" : 8080,
-                  "CidrIp" : "0.0.0.0/0"
+                "Ref": "ApplicationSecurityGroup"
               }
             ]
           }
+        ],
+        "KeyName": "dheeraj-mac-laptop",
+        "ImageId": {
+          "Ref": "AmiId"
         },
-        "ApplicationEC2Instances":{
-          "Type":"AWS::EC2::Instance",
-          "DependsOn":"PublicRoute",
-          "Properties":{
-            "InstanceType":{
-              "Ref":"ApplicationInstanceType"
-            },
-            "NetworkInterfaces":[{
-              "AssociatePublicIpAddress": true,
+        "BlockDeviceMappings": [
+          {
+            "DeviceName": "/dev/xvda",
+            "Ebs": {
+              "VolumeType": "gp2",
               "DeleteOnTermination": true,
-              "SubnetId":{
-                "Ref":"Subnet1"
-              },
-              "DeviceIndex":0,
-              "GroupSet":[{
-                "Ref":"ApplicationSecurityGroup"
-              }]
-            }],
-            "KeyName":"dheeraj-mac-laptop",
-            "ImageId":{
-              "Ref":"AmiId"
-            },
-            "BlockDeviceMappings":[{
-              "DeviceName":"/dev/xvda",
-              "Ebs":{
-                "VolumeType":"gp2",
-                "DeleteOnTermination":true,
-                "VolumeSize":"20"
-              }
-              }],
-            "Tags":[{
-              "Key":"Name",
-              "Value":"App Server"
-            }]
-          }
-        }
-    },
-    "Outputs": {
-        "VPCId": {
-            "Description": "newly created VPC details",
-            "Value": {
-                "Ref": "VPC"
+              "VolumeSize": "20"
             }
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "\n",
+              [
+                "#!/bin/bash",
+                "cat > /etc/profile.d/webserver_env.sh << 'EOF'",
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "export bucketName=",
+                      {
+                        "Ref": "S3BucketRandomString"
+                      },
+                      {
+                        "Fn::FindInMap": [
+                          "UserS3Map",
+                          {
+                            "Ref": "User"
+                          },
+                          "name"
+                        ]
+                      },
+                      ".dheerajreddy.me'"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "export dbHost=",
+                      {
+                        "Fn::GetAtt": "RDSInstance.Endpoint.Address"
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Sub": "export dbUser='${MysqlUserName}'"
+                },
+                {
+                  "Fn::Sub": "export dbPass='${MysqlPassword}'"
+                },
+                "EOF",
+                "rm  /home/ec2-user/webserver/mysql.config",
+                "touch  /home/ec2-user/webserver/mysql.config",
+                "cat >> /home/ec2-user/webserver/mysql.config << 'EOF'",
+                {
+                    "Fn::Join": ["",["{\"bucketName\":\"",{"Ref": "S3BucketRandomString"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me\","]]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "\"dbHost\":\"",
+                      {
+                        "Fn::GetAtt": "RDSInstance.Endpoint.Address"
+                      },
+                      "\","
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Sub": "\"dbUser\":\"${MysqlUserName}\","
+                },
+                {
+                  "Fn::Sub": "\"dbPass\":\"${MysqlPassword}\"}"
+                },
+                "EOF",
+                "chmod 777 /home/ec2-user/webserver/mysql.config",
+                "chmod 777 /etc/profile.d/webserver_env.sh",
+                "sudo systemctl restart application_boot.service"
+              ]
+            ]
+          }
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "App Server"
+          }
+        ]
+      }
+    },
+    "IAMRoleForAPPServer": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "Description": "IAM role to access s3 from app server for storage",
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "ec2.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "S3Access",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:PutObject",
+                    "s3:GetObject",
+                    "s3:DeleteObject"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Join": ["",["arn:aws:s3:::",{"Ref": "S3BucketRandomString"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me"]]
+                    },
+                    {
+                      "Fn::Join": ["",["arn:aws:s3:::",{"Ref": "S3BucketRandomString"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me/*"]]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "S3IamRole"
+          }
+        ]
+      }
+    },
+    "IAMInstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Roles": [
+          {
+            "Ref": "IAMRoleForAPPServer"
+          }
+        ]
+      }
+    },
+    "S3Bucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketName": {
+          "Fn::Join": ["",[{"Ref": "S3BucketRandomString"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me"]]
+        },
+        "AccessControl": "Private",
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        },
+        "LifecycleConfiguration": {
+          "Rules": [
+            {
+              "Id": "StorageRules",
+              "Prefix": "standardIA",
+              "Status": "Enabled",
+              "Transitions": [
+                {
+                  "TransitionInDays": 30,
+                  "StorageClass": "STANDARD_IA"
+                }
+              ]
+            }
+          ]
         }
+      }
+    },
+    "RDSParameterGroup": {
+      "Type": "AWS::RDS::DBParameterGroup",
+      "Properties": {
+        "Description": "MySQL Parameter Group",
+        "Family": "mysql8.0",
+        "Parameters": {
+          "sql_mode": "IGNORE_SPACE"
+        }
+      }
+    },
+    "RDSInstance": {
+      "Type": "AWS::RDS::DBInstance",
+      "Properties": {
+        "DBInstanceIdentifier": "webserver",
+        "DBName": "webserver",
+        "DBInstanceClass": "db.t2.micro",
+        "DeleteAutomatedBackups": true,
+        "Engine": "MySQL",
+        "EngineVersion": "8.0.16",
+        "AllocatedStorage": "5",
+        "MasterUsername": {
+          "Ref": "MysqlUserName"
+        },
+        "MasterUserPassword": {
+          "Ref": "MysqlPassword"
+        },
+        "DBParameterGroupName": {
+          "Ref": "RDSParameterGroup"
+        },
+        "VPCSecurityGroups": [
+          {
+            "Fn::GetAtt": "DBSecurityGroup.GroupId"
+          }
+        ],
+        "DBSubnetGroupName": {
+          "Ref": "DBSubnetGroup"
+        },
+        "MultiAZ": false,
+        "PubliclyAccessible": false
+      },
+      "DependsOn": [
+        "DBSubnet1",
+        "DBSubnet2",
+        "DBSubnet3",
+        "VPCInternetGateway"
+      ]
     }
+  },
+  "Outputs": {
+    "VPCId": {
+      "Description": "newly created VPC details",
+      "Value": {
+        "Ref": "VPC"
+      }
+    }
+  }
 }
