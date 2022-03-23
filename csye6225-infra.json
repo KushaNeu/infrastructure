@@ -69,6 +69,10 @@
       "Type": "String",
       "Description": "password for mysql",
       "Default": "dev"
+    },
+    "DomainName:": {
+      "Description": "Public Domain Name",
+      "Type": "String"
     }
   },
   "Mappings": {
@@ -382,18 +386,6 @@
             "FromPort": 80,
             "ToPort": 80,
             "CidrIp": "0.0.0.0/0"
-          },
-          {
-            "IpProtocol": "tcp",
-            "FromPort": 443,
-            "ToPort": 443,
-            "CidrIp": "0.0.0.0/0"
-          },
-          {
-            "IpProtocol": "tcp",
-            "FromPort": 8080,
-            "ToPort": 8080,
-            "CidrIp": "0.0.0.0/0"
           }
         ]
       }
@@ -417,129 +409,413 @@
         ]
       }
     },
-    "ApplicationEC2Instances": {
-      "Type": "AWS::EC2::Instance",
-      "DependsOn": "PublicRoute",
+    "LoadBalancerSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
       "Properties": {
-        "InstanceType": {
-          "Ref": "ApplicationInstanceType"
+        "GroupDescription": "loadbalance port openings",
+        "VpcId": {
+          "Ref": "VPC"
         },
-        "IamInstanceProfile": {
-          "Ref": "IAMInstanceProfile"
-        },
-        "NetworkInterfaces": [
+        "SecurityGroupIngress": [
           {
-            "AssociatePublicIpAddress": true,
-            "DeleteOnTermination": true,
-            "SubnetId": {
-              "Ref": "Subnet1"
-            },
-            "DeviceIndex": 0,
-            "GroupSet": [
-              {
-                "Ref": "ApplicationSecurityGroup"
-              }
-            ]
+            "IpProtocol": "tcp",
+            "FromPort": 80,
+            "ToPort": 80,
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 443,
+            "ToPort": 443,
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+    "Route53LBMap": {
+      "Type": "AWS::Route53::RecordSet",
+      "Properties": {
+        "Name": {
+          "Ref": "DomainName"
+        },
+        "Type": "A",
+        "HostedZoneName": {
+          "Ref": "DomainName"
+        },
+        "AliasTarget": {
+          "DNSName": {
+            "Fn::GetAtt": "PublicLoadBalancer.DNSName"
+          },
+          "HostedZoneId": {
+            "Fn::GetAtt": "PublicLoadBalancer.CanonicalHostedZoneID"
+          }
+        }
+      }
+    },
+    "PublicLoadBalancer": {
+      "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+      "Properties": {
+        "IpAddressType": "ipv4",
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-load-balancer"
+        },
+        "Scheme": "interet-facing",
+        "SecurityGroups": [
+          {
+            "Fn::GetAtt": "LoadBalancerSecurityGroup.GroupId"
           }
         ],
-        "KeyName": "dheeraj-mac-laptop",
-        "ImageId": {
-          "Ref": "AmiId"
-        },
-        "BlockDeviceMappings": [
+        "Subnets": [
           {
-            "DeviceName": "/dev/xvda",
-            "Ebs": {
-              "VolumeType": "gp2",
-              "DeleteOnTermination": true,
-              "VolumeSize": "20"
+            "Ref": "Subnet1"
+          },
+          {
+            "Ref": "Subnet2"
+          },
+          {
+            "Ref": "Subnet3"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Application",
+            "Value": "webapp entry point"
+          }
+        ],
+        "Type": "application"
+      }
+    },
+    "PublicLoadBalancerTargetGroup": {
+      "Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
+      "Properties": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-loadBalancer-targetGroup"
+        },
+        "TargetType": "Instance",
+        "Port": 8080,
+        "Protocol": "HTTP",
+        "UnhealthyThresholdCount": 2,
+        "HealthCheckIntervalSeconds": 90,
+        "HealthCheckPath": "/healthz",
+        "HealthCheckPort": "80",
+        "HealthCheckProtocol": "HTTP",
+        "HealthCheckTimeoutSeconds": 60,
+        "HealthyThresholdCount": 2,
+        "IpAddressType": "ipv4",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": "${AWS::StackName}-loadBalancer-targetGroup"
             }
           }
         ],
-        "UserData": {
-          "Fn::Base64": {
-            "Fn::Join": [
-              "\n",
-              [
-                "#!/bin/bash",
-                "cat > /etc/profile.d/webserver_env.sh << 'EOF'",
+        "TargetGroupAttributes": [
+          {
+            "Key": "deregistration_delay.timeout_seconds",
+            "Value": 20
+          }
+        ],
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      }
+    },
+    "PublicLoadBalancerListener": {
+      "Type": "AWS::ElasticLoadBalancingV2::Listener",
+      "Properties": {
+        "DefaultActions": [
+          {
+            "Type": "forward",
+            "TargetGroupArn": {
+              "Ref": "PublicLoadBalancerTargetGroup"
+            }
+          }
+        ],
+        "LoadBalancerArn": {
+          "Ref": "PublicLoadBalancer"
+        },
+        "Port": 80,
+        "Protocol": "HTTP"
+      }
+    },
+    "AutoScalingGroupTemplate": {
+      "Type": "AWS::EC2::LaunchTemplate",
+      "DependsOn": [
+        "PublicRoute",
+        "RDSInstance"
+      ],
+      "Properties": {
+        "LaunchTemplateName": {
+          "Fn::Sub": "${AWS::StackName}-launch-template"
+        },
+        "LaunchTemplateData": {
+          "InstanceType": {
+            "Ref": "ApplicationInstanceType"
+          },
+          "IamInstanceProfile": {
+            "Ref": "IAMInstanceProfile"
+          },
+          "NetworkInterfaces": [
+            {
+              "AssociatePublicIpAddress": true,
+              "DeleteOnTermination": true,
+              "SubnetId": {
+                "Ref": "Subnet1"
+              },
+              "DeviceIndex": 0,
+              "GroupSet": [
                 {
-                  "Fn::Join": [
-                    "",
-                    [
-                      "export bucketName=",
-                      {
-                        "Ref": "S3BucketRandomString"
-                      },
-                      {
-                        "Fn::FindInMap": [
-                          "UserS3Map",
-                          {
-                            "Ref": "User"
-                          },
-                          "name"
-                        ]
-                      },
-                      ".dheerajreddy.me'"
-                    ]
-                  ]
-                },
-                {
-                  "Fn::Join": [
-                    "",
-                    [
-                      "export dbHost=",
-                      {
-                        "Fn::GetAtt": "RDSInstance.Endpoint.Address"
-                      }
-                    ]
-                  ]
-                },
-                {
-                  "Fn::Sub": "export dbUser='${MysqlUserName}'"
-                },
-                {
-                  "Fn::Sub": "export dbPass='${MysqlPassword}'"
-                },
-                "EOF",
-                "rm  /home/ec2-user/webserver/mysql.config",
-                "touch  /home/ec2-user/webserver/mysql.config",
-                "cat >> /home/ec2-user/webserver/mysql.config << 'EOF'",
-                {
-                    "Fn::Join": ["",["{\"bucketName\":\"",{"Ref": "S3BucketRandomString"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me\","]]
-                },
-                {
-                  "Fn::Join": [
-                    "",
-                    [
-                      "\"dbHost\":\"",
-                      {
-                        "Fn::GetAtt": "RDSInstance.Endpoint.Address"
-                      },
-                      "\","
-                    ]
-                  ]
-                },
-                {
-                  "Fn::Sub": "\"dbUser\":\"${MysqlUserName}\","
-                },
-                {
-                  "Fn::Sub": "\"dbPass\":\"${MysqlPassword}\"}"
-                },
-                "EOF",
-                "chmod 777 /home/ec2-user/webserver/mysql.config",
-                "chmod 777 /etc/profile.d/webserver_env.sh",
-                "sudo systemctl restart application_boot.service"
+                  "Ref": "ApplicationSecurityGroup"
+                }
               ]
-            ]
+            }
+          ],
+          "KeyName": "dheeraj-mac-laptop",
+          "ImageId": {
+            "Ref": "AmiId"
+          },
+          "BlockDeviceMappings": [
+            {
+              "DeviceName": "/dev/xvda",
+              "Ebs": {
+                "VolumeType": "gp2",
+                "DeleteOnTermination": true,
+                "VolumeSize": "20"
+              }
+            }
+          ],
+          "UserData": {
+            "Fn::Base64": {
+              "Fn::Join": [
+                "\n",
+                [
+                  "#!/bin/bash",
+                  "cat > /etc/profile.d/webserver_env.sh << 'EOF'",
+                  {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "export bucketName=",
+                        {
+                          "Ref": "S3BucketRandomString"
+                        },
+                        {
+                          "Fn::FindInMap": [
+                            "UserS3Map",
+                            {
+                              "Ref": "User"
+                            },
+                            "name"
+                          ]
+                        },
+                        ".dheerajreddy.me'"
+                      ]
+                    ]
+                  },
+                  {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "export dbHost=",
+                        {
+                          "Fn::GetAtt": "RDSInstance.Endpoint.Address"
+                        }
+                      ]
+                    ]
+                  },
+                  {
+                    "Fn::Sub": "export dbUser='${MysqlUserName}'"
+                  },
+                  {
+                    "Fn::Sub": "export dbPass='${MysqlPassword}'"
+                  },
+                  "EOF",
+                  "rm  /home/ec2-user/webserver/mysql.config",
+                  "touch  /home/ec2-user/webserver/mysql.config",
+                  "cat >> /home/ec2-user/webserver/mysql.config << 'EOF'",
+                  {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "{\"bucketName\":\"",
+                        {
+                          "Ref": "S3BucketRandomString"
+                        },
+                        ".",
+                        {
+                          "Fn::FindInMap": [
+                            "UserS3Map",
+                            {
+                              "Ref": "User"
+                            },
+                            "name"
+                          ]
+                        },
+                        ".dheerajreddy.me\","
+                      ]
+                    ]
+                  },
+                  {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "\"dbHost\":\"",
+                        {
+                          "Fn::GetAtt": "RDSInstance.Endpoint.Address"
+                        },
+                        "\","
+                      ]
+                    ]
+                  },
+                  {
+                    "Fn::Sub": "\"dbUser\":\"${MysqlUserName}\","
+                  },
+                  {
+                    "Fn::Sub": "\"dbPass\":\"${MysqlPassword}\"}"
+                  },
+                  "EOF",
+                  "chmod 777 /home/ec2-user/webserver/mysql.config",
+                  "chmod 777 /etc/profile.d/webserver_env.sh",
+                  "sudo systemctl restart application_boot.service"
+                ]
+              ]
+            }
           }
         },
         "Tags": [
           {
             "Key": "Name",
-            "Value": "App Server"
+            "Value": "App Server Launch Template"
           }
         ]
+      }
+    },
+    "AppServerAutoScalingGroup": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "Properties": {
+        "AutoScalingGroupName": {
+          "Fn::Sub": "${AWS::StackName}-auto-scaling-group"
+        },
+        "Cooldown": 60,
+        "DesiredCapacity": 1,
+        "HealthCheckGracePeroid": 90,
+        "HealthCheckType": "EC2",
+        "LaunchTemplate": {
+          "LaunchTemplateId": {
+            "Ref": "AutoScalingGroupTemplate",
+            "Version": {
+              "Fn::GetAtt": "AutoScalingGroupTemplate.LatestVersionNumber"
+            }
+          }
+        },
+        "MaxSize": 5,
+        "MinSize": 1,
+        "NewInstancesProtectedFromScaleIn": false,
+        "Tags": [
+          {
+            "Key": "Application",
+            "Value": "WebApp",
+            "PropagateAtLaunch": true
+          },
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Sub": "!Sub ${AWS::StackName}-app-server-scaling"
+            },
+            "PropagateAtLaunch": true
+          }
+        ],
+        "TargetGroupARNs": [
+          {
+            "Ref": "PublicLoadBalancerTargetGroup"
+          }
+        ],
+        "VPCZoneIdentifier": [
+          {
+            "Ref": "Subnet1"
+          },
+          {
+            "Ref": "Subnet2"
+          },
+          {
+            "Ref": "Subnet3"
+          }
+        ]
+      }
+    },
+    "ASGCPUPolicyScaleUp": {
+      "Type": "AWS::AutoScaling::ScalingPolicy",
+      "Properties": {
+        "AutoScalingGroupName": {
+          "Ref": "AppServerAutoScalingGroup"
+        },
+        "AdjustmentType": "ChangeInCapacity",
+        "Cooldown": 60,
+        "ScalingAdjustment": 1
+      }
+    },
+    "ASGCPUPolicyScaleDown": {
+      "Type": "AWS::AutoScaling::ScalingPolicy",
+      "Properties": {
+        "AutoScalingGroupName": {
+          "Ref": "AppServerAutoScalingGroup"
+        },
+        "AdjustmentType": "ChangeInCapacity",
+        "Cooldown": 60,
+        "ScalingAdjustment": -1
+      }
+    },
+    "CloudWatchAlarmScaleUp": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "ASGCPUPolicyScaleDown"
+          }
+        ],
+        "AlarmDescription": "Alarm for scaling down",
+        "ComparisonOperator": "GreaterThankThreshold",
+        "Dimensions": [
+          {
+            "Name": "AutoScalingGroupName",
+            "Value": {
+              "Ref": "AppServerAutoScalingGroup"
+            }
+          }
+        ],
+        "EvaluationPeriods": 2,
+        "MetricName": "CPUUtilization",
+        "Namespace": "AWS/EC2",
+        "Period": 60,
+        "Statistic": "Average",
+        "Threshold": 5
+      }
+    },
+    "CloudWatchAlarmScaleDown": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "ASGCPUPolicyScaleDown"
+          }
+        ],
+        "AlarmDescription": "Alarm for scaling down",
+        "ComparisonOperator": "LessThanThreshold",
+        "Dimensions": [
+          {
+            "Name": "AutoScalingGroupName",
+            "Value": {
+              "Ref": "AppServerAutoScalingGroup"
+            }
+          }
+        ],
+        "EvaluationPeriods": 2,
+        "MetricName": "CPUUtilization",
+        "Namespace": "AWS/EC2",
+        "Period": 60,
+        "Statistic": "Average",
+        "Threshold": 3
       }
     },
     "IAMRoleForAPPServer": {
@@ -577,10 +853,48 @@
                   ],
                   "Resource": [
                     {
-                      "Fn::Join": ["",["arn:aws:s3:::",{"Ref": "S3BucketRandomString"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me"]]
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws:s3:::",
+                          {
+                            "Ref": "S3BucketRandomString"
+                          },
+                          ".",
+                          {
+                            "Fn::FindInMap": [
+                              "UserS3Map",
+                              {
+                                "Ref": "User"
+                              },
+                              "name"
+                            ]
+                          },
+                          ".dheerajreddy.me"
+                        ]
+                      ]
                     },
                     {
-                      "Fn::Join": ["",["arn:aws:s3:::",{"Ref": "S3BucketRandomString"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me/*"]]
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws:s3:::",
+                          {
+                            "Ref": "S3BucketRandomString"
+                          },
+                          ".",
+                          {
+                            "Fn::FindInMap": [
+                              "UserS3Map",
+                              {
+                                "Ref": "User"
+                              },
+                              "name"
+                            ]
+                          },
+                          ".dheerajreddy.me/*"
+                        ]
+                      ]
                     }
                   ]
                 }
@@ -610,7 +924,25 @@
       "Type": "AWS::S3::Bucket",
       "Properties": {
         "BucketName": {
-          "Fn::Join": ["",[{"Ref": "S3BucketRandomString"},".",{"Fn::FindInMap": ["UserS3Map",{"Ref": "User"},"name"]},".dheerajreddy.me"]]
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "S3BucketRandomString"
+              },
+              ".",
+              {
+                "Fn::FindInMap": [
+                  "UserS3Map",
+                  {
+                    "Ref": "User"
+                  },
+                  "name"
+                ]
+              },
+              ".dheerajreddy.me"
+            ]
+          ]
         },
         "AccessControl": "Private",
         "BucketEncryption": {
