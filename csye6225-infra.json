@@ -472,7 +472,7 @@
       "Properties": {
         "IpAddressType": "ipv4",
         "Name": {
-          "Fn::Sub": "${AWS::StackName}-load-balancer"
+          "Fn::Sub": "${AWS::StackName}-lb"
         },
         "Scheme": "interet-facing",
         "SecurityGroups": [
@@ -504,7 +504,7 @@
       "Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
       "Properties": {
         "Name": {
-          "Fn::Sub": "${AWS::StackName}-loadBalancer-targetGroup"
+          "Fn::Sub": "${AWS::StackName}-lb-tg"
         },
         "TargetType": "Instance",
         "Port": 8080,
@@ -521,7 +521,7 @@
           {
             "Key": "Name",
             "Value": {
-              "Fn::Sub": "${AWS::StackName}-loadBalancer-targetGroup"
+              "Fn::Sub": "${AWS::StackName}-lb-tg"
             }
           }
         ],
@@ -562,7 +562,7 @@
       ],
       "Properties": {
         "LaunchTemplateName": {
-          "Fn::Sub": "${AWS::StackName}-launch-template"
+          "Fn::Sub": "${AWS::StackName}-lt"
         },
         "LaunchTemplateData": {
           "InstanceType": {
@@ -710,7 +710,7 @@
       "Type": "AWS::AutoScaling::AutoScalingGroup",
       "Properties": {
         "AutoScalingGroupName": {
-          "Fn::Sub": "${AWS::StackName}-auto-scaling-group"
+          "Fn::Sub": "${AWS::StackName}-asg"
         },
         "Cooldown": 60,
         "DesiredCapacity": 1,
@@ -736,7 +736,7 @@
           {
             "Key": "Name",
             "Value": {
-              "Fn::Sub": "!Sub ${AWS::StackName}-app-server-scaling"
+              "Fn::Sub": "!Sub ${AWS::StackName}-appScale"
             },
             "PropagateAtLaunch": true
           }
