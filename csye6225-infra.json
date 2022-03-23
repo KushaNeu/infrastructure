@@ -436,9 +436,24 @@
       "Type": "AWS::Route53::RecordSet",
       "Properties": {
         "Name": {
-          "Ref": "DomainName"
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Fn::FindInMap": [
+                  "UserS3Map",
+                  {
+                    "Ref": "User"
+                  },
+                  "name"
+                ]
+              },
+              ".dheerajreddy.me"
+            ]
+          ]
         },
         "Type": "A",
+        "TTL":60,
         "HostedZoneName": {
           "Ref": "DomainName"
         },
