@@ -70,7 +70,7 @@
       "Description": "password for mysql",
       "Default": "dev"
     },
-    "DomainName:": {
+    "DomainName": {
       "Description": "Public Domain Name",
       "Type": "String"
     }
