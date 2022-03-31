@@ -858,6 +858,58 @@
                 }
               ]
             }
+          },
+          {
+            "PolicyName": "CodeDeployS3Access",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws:s3:::",
+                          {
+                            "Fn::FindInMap": [
+                              "UserS3Map",
+                              {
+                                "Ref": "User"
+                              },
+                              "name"
+                            ]
+                          },
+                          ".codedeploy"
+                        ]
+                      ]
+                    },
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws:s3:::",
+                          {
+                            "Fn::FindInMap": [
+                              "UserS3Map",
+                              {
+                                "Ref": "User"
+                              },
+                              "name"
+                            ]
+                          },
+                          ".codedeploy/*"
+                        ]
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
           }
         ],
         "Tags": [
@@ -975,6 +1027,58 @@
         "DBSubnet3",
         "VPCInternetGateway"
       ]
+    },
+    "WebAppCodeDeployApplication":{
+      "Type":"AWS::CodeDeploy::Application",
+      "Properties":{
+        "ApplicationName":"webapp",
+        "ComputePlatform":"server",
+        "Tags":[{
+          "Key":"Name",
+          "Value":{"Ref":"Name"}
+        }]
+      }
+    },
+    "WebappDeploymentGroup":{
+      "Type":"AWS::CodeDeploy::DeploymentGroup",
+      "Properties":{
+        "ApplicationName":{
+          "Ref":"WebAppCodeDeployApplication"
+        },
+        "ServiceRoleArn":{
+          "Fn::GetAtt":"CodeDeployServiceRole.Arn"
+        },
+        "DeploymentConfigName":"CodeDeployDefault.AllAtOnce",
+        "DeploymentGroupName":"webapp",
+        "AutoScalingGroups":[{"Ref":"AppServerAutoScalingGroup"}],
+        "DependsOn":["WebAppCodeDeployApplication","AppServerAutoScalingGroup","CodeDeployServiceRole"]
+      }
+    },
+    "CodeDeployServiceRole":{
+      "Type":"AWS::IAM::Role",
+      "Properties":{
+        "AssumeRolePolicyDocument":{
+          "Version":"2012-10-17",
+          "Statement":[{
+            "Effect":"Allow",
+            "Principal":{"Service":["codedeploy.amazonaws.com"]},
+            "Action":["sts:AssumeRole"]
+          }]
+        },
+        "Policies":[
+          {"PolicyName":"allow-autoscaling",
+            "PolicyDocument":{
+              "Version":"2012-10-17",
+              "Statement":[
+                {"Effect":"Allow",
+                  "Action":[
+                    "ec2:*","autoscaling:*"
+                  ],
+                "Resource":"*"}
+              ]
+            }}
+        ]
+      }
     }
   },
   "Outputs": {
