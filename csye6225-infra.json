@@ -639,6 +639,51 @@
                   },
                   "EOF",
                   "chmod 777 config/mysql.config",
+                  "rm  /tmp/mysql.config",
+                  "touch  /tmp/mysql.config",
+                  "cat >> /tmp/mysql.config << 'EOF'",
+                  {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "{\"bucketName\":\"",
+                        {
+                          "Ref": "S3BucketRandomString"
+                        },
+                        ".",
+                        {
+                          "Fn::FindInMap": [
+                            "UserS3Map",
+                            {
+                              "Ref": "User"
+                            },
+                            "name"
+                          ]
+                        },
+                        ".dheerajreddy.me\","
+                      ]
+                    ]
+                  },
+                  {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "\"dbHost\":\"",
+                        {
+                          "Fn::GetAtt": "RDSInstance.Endpoint.Address"
+                        },
+                        "\","
+                      ]
+                    ]
+                  },
+                  {
+                    "Fn::Sub": "\"dbUser\":\"${MysqlUserName}\","
+                  },
+                  {
+                    "Fn::Sub": "\"dbPass\":\"${MysqlPassword}\"}"
+                  },
+                  "EOF",
+                  "chmod 777 /tmp/mysql.config",
                   "sudo systemctl restart application_boot.service"
                 ]
               ]
