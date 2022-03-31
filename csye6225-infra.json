@@ -595,9 +595,9 @@
                 "\n",
                 [
                   "#!/bin/bash",
-                  "rm  /home/ec2-user/webserver/mysql.config",
-                  "touch  /home/ec2-user/webserver/mysql.config",
-                  "cat >> /home/ec2-user/webserver/mysql.config << 'EOF'",
+                  "rm  /opt/webserver/mysql.config",
+                  "touch  /opt/webserver/mysql.config",
+                  "cat >> /opt/webserver/mysql.config << 'EOF'",
                   {
                     "Fn::Join": [
                       "",
@@ -639,8 +639,7 @@
                     "Fn::Sub": "\"dbPass\":\"${MysqlPassword}\"}"
                   },
                   "EOF",
-                  "chmod 777 /home/ec2-user/webserver/mysql.config",
-                  "chmod 777 /etc/profile.d/webserver_env.sh",
+                  "chmod 777 /opt/webserver/mysql.config",
                   "sudo systemctl restart application_boot.service"
                 ]
               ]
@@ -1032,7 +1031,7 @@
       "Type":"AWS::CodeDeploy::Application",
       "Properties":{
         "ApplicationName":"webapp",
-        "ComputePlatform":"server",
+        "ComputePlatform":"Server",
         "Tags":[{
           "Key":"Name",
           "Value":{"Ref":"Name"}
@@ -1050,9 +1049,9 @@
         },
         "DeploymentConfigName":"CodeDeployDefault.AllAtOnce",
         "DeploymentGroupName":"webapp",
-        "AutoScalingGroups":[{"Ref":"AppServerAutoScalingGroup"}],
-        "DependsOn":["WebAppCodeDeployApplication","AppServerAutoScalingGroup","CodeDeployServiceRole"]
-      }
+        "AutoScalingGroups":[{"Ref":"AppServerAutoScalingGroup"}]
+      },
+      "DependsOn":["WebAppCodeDeployApplication","AppServerAutoScalingGroup","CodeDeployServiceRole"]
     },
     "CodeDeployServiceRole":{
       "Type":"AWS::IAM::Role",
