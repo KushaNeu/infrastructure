@@ -1,6 +1,6 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "Netowrks and cloud computing - infrastructure as a code -assignment 5",
+  "Description": "Networks and cloud computing - infrastructure as a code -assignment 5",
   "Parameters": {
     "Name": {
       "Type": "String",
@@ -379,9 +379,7 @@
             "IpProtocol": "tcp",
             "FromPort": 22,
             "ToPort": 22,
-            "SourceSecurityGroupId": {
-              "Ref": "LoadBalancerSecurityGroup"
-            }
+            "CidrIp": "0.0.0.0/0"
           },
           {
             "IpProtocol": "tcp",
@@ -595,9 +593,10 @@
                 "\n",
                 [
                   "#!/bin/bash",
-                  "rm  /opt/webserver/mysql.config",
-                  "touch  /opt/webserver/mysql.config",
-                  "cat >> /opt/webserver/mysql.config << 'EOF'",
+                  "cd",
+                  "rm  config/mysql.config",
+                  "touch  config/mysql.config",
+                  "cat >> config/mysql.config << 'EOF'",
                   {
                     "Fn::Join": [
                       "",
@@ -639,7 +638,7 @@
                     "Fn::Sub": "\"dbPass\":\"${MysqlPassword}\"}"
                   },
                   "EOF",
-                  "chmod 777 /opt/webserver/mysql.config",
+                  "chmod 777 config/mysql.config",
                   "sudo systemctl restart application_boot.service"
                 ]
               ]
