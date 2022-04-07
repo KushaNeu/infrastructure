@@ -959,6 +959,10 @@
             }
           }
         ],
+        "ManagedPolicyArns":[
+          "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
+          "arn:aws:iam::aws:policy/CloudWatchAgentAdminPolicy"
+        ],
         "Tags": [
           {
             "Key": "Name",
