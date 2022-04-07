@@ -73,6 +73,10 @@
     "DomainName": {
       "Description": "Public Domain Name",
       "Type": "String"
+    },
+    "AccountId":{
+      "Description":"organization account id",
+      "Type":"String"
     }
   },
   "Mappings": {
@@ -790,7 +794,7 @@
         "Namespace": "AWS/EC2",
         "Period": 60,
         "Statistic": "Average",
-        "Threshold": 5
+        "Threshold": 15
       }
     },
     "CloudWatchAlarmScaleDown": {
@@ -816,7 +820,7 @@
         "Namespace": "AWS/EC2",
         "Period": 60,
         "Statistic": "Average",
-        "Threshold": 3
+        "Threshold": 10
       }
     },
     "IAMRoleForAPPServer": {
@@ -1121,6 +1125,106 @@
               ]
             }}
         ]
+      }
+    },
+    "CloudWatchLogGroup":{
+      "Type":"AWS::Logs::LogGroup",
+      "Properties":{
+        "LogGroupName":"webapp-metrics",
+        "RetentionInDays":1,
+        "Tags":[
+          {"Key":"Name","Value":
+          {"Ref":"Name"}}
+        ]
+      }
+    },
+    "CloudWatchLogStream":{
+      "Type": "AWS::Logs::LogStream",
+      "Properties":{
+        "LogGroupName":"webapp-metrics",
+        "LogStreamName":"webapp"
+      },
+      "DependsOn":["CloudWatchLogGroup"]
+    },
+    "GHS3Policy":{
+      "Type":"AWS::IAM::ManagedPolicy",
+      "Properties":{
+        "Description":"perms to copy deployment folder to s3",
+        "PolicyDocument":{
+          "Version":"2012-10-17",
+          "Statement":[
+            {"Effect":"Allow",
+            "Action":["s3:PutObject","s3:ListBucket"],
+          "Resource":[{
+            "Fn::Join": [
+              "",
+              [
+                "arn:aws:s3:::",
+                {
+                  "Fn::FindInMap": [
+                    "UserS3Map",
+                    {
+                      "Ref": "User"
+                    },
+                    "name"
+                  ]
+                },
+                ".codedeploy/*"
+              ]
+            ]
+          },
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:aws:s3:::",
+                {
+                  "Fn::FindInMap": [
+                    "UserS3Map",
+                    {
+                      "Ref": "User"
+                    },
+                    "name"
+                  ]
+                },
+                ".codedeploy"
+              ]
+            ]
+          }]}
+          ]
+        },
+        "ManagedPolicyName":"ghArtifactUpload",
+        "Users":["gh_demo_user"]
+      }
+    }
+    ,
+    "GHCodeDeployPolicy":{
+      "Type":"AWS::IAM::ManagedPolicy",
+      "Properties":{
+        "Description":"perms to call code deploy",
+        "PolicyDocument":{
+          "Version":"2012-10-17",
+          "Statement":[
+            {"Effect":"Allow",
+            "Action":["codedeploy:CreateDeployment",
+              "codedeploy:GetDeployment"],
+            "Resource":["*"]},
+            {"Effect":"Allow",
+              "Action":["codedeploy:GetDeploymentConfig",
+                "codedeploy:GetDeployment"],
+              "Resource":[{
+                "Fn::Sub":"arn:aws:codedeploy:us-east-1:${AccountId}:deploymentconfig:CodeDeployDefault.AllAtOnce"
+              }]},
+              {"Effect":"Allow",
+                "Action":["codedeploy:GetApplicationRevision",
+                  "codedeploy:RegisterApplicationRevision"],
+                "Resource":[{
+                  "Fn::Sub":"arn:aws:codedeploy:us-east-1:${AccountId}:application:webapp"
+                }]}
+          ]
+        },
+        "ManagedPolicyName":"githubActionsCodeDeployAPI",
+        "Users":["gh_demo_user"]
       }
     }
   },
