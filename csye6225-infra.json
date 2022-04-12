@@ -1,6 +1,6 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "Netowrks and cloud computing - infrastructure as a code -assignment 5",
+  "Description": "Networks and cloud computing - infrastructure as a code -assignment 5",
   "Parameters": {
     "Name": {
       "Type": "String",
@@ -75,7 +75,10 @@
       "Type": "String"
     },
     "SEStopicArn":{
-      "Description":"mail domain",
+      "Description":"mail domain"
+    },
+    "AccountId":{
+      "Description":"organization account id",
       "Type":"String"
     }
   },
@@ -383,9 +386,7 @@
             "IpProtocol": "tcp",
             "FromPort": 22,
             "ToPort": 22,
-            "SourceSecurityGroupId": {
-              "Ref": "LoadBalancerSecurityGroup"
-            }
+            "CidrIp": "0.0.0.0/0"
           },
           {
             "IpProtocol": "tcp",
@@ -599,9 +600,10 @@
                 "\n",
                 [
                   "#!/bin/bash",
-                  "rm  /home/ec2-user/webserver/mysql.config",
-                  "touch  /home/ec2-user/webserver/mysql.config",
-                  "cat >> /home/ec2-user/webserver/mysql.config << 'EOF'",
+                  "cd",
+                  "rm  config/mysql.config",
+                  "touch  config/mysql.config",
+                  "cat >> config/mysql.config << 'EOF'",
                   {
                     "Fn::Join": [
                       "",
@@ -643,8 +645,52 @@
                     "Fn::Sub": "\"dbPass\":\"${MysqlPassword}\"}"
                   },
                   "EOF",
-                  "chmod 777 /home/ec2-user/webserver/mysql.config",
-                  "chmod 777 /etc/profile.d/webserver_env.sh",
+                  "chmod 777 config/mysql.config",
+                  "rm  /tmp/mysql.config",
+                  "touch  /tmp/mysql.config",
+                  "cat >> /tmp/mysql.config << 'EOF'",
+                  {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "{\"bucketName\":\"",
+                        {
+                          "Ref": "S3BucketRandomString"
+                        },
+                        ".",
+                        {
+                          "Fn::FindInMap": [
+                            "UserS3Map",
+                            {
+                              "Ref": "User"
+                            },
+                            "name"
+                          ]
+                        },
+                        ".dheerajreddy.me\","
+                      ]
+                    ]
+                  },
+                  {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "\"dbHost\":\"",
+                        {
+                          "Fn::GetAtt": "RDSInstance.Endpoint.Address"
+                        },
+                        "\","
+                      ]
+                    ]
+                  },
+                  {
+                    "Fn::Sub": "\"dbUser\":\"${MysqlUserName}\","
+                  },
+                  {
+                    "Fn::Sub": "\"dbPass\":\"${MysqlPassword}\"}"
+                  },
+                  "EOF",
+                  "chmod 777 /tmp/mysql.config",
                   "sudo systemctl restart application_boot.service"
                 ]
               ]
@@ -751,7 +797,7 @@
         "Namespace": "AWS/EC2",
         "Period": 60,
         "Statistic": "Average",
-        "Threshold": 5
+        "Threshold": 15
       }
     },
     "CloudWatchAlarmScaleDown": {
@@ -777,7 +823,7 @@
         "Namespace": "AWS/EC2",
         "Period": 60,
         "Statistic": "Average",
-        "Threshold": 3
+        "Threshold": 10
       }
     },
     "IAMRoleForAPPServer": {
@@ -862,7 +908,63 @@
                 }
               ]
             }
+          },
+          {
+            "PolicyName": "CodeDeployS3Access",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws:s3:::",
+                          {
+                            "Fn::FindInMap": [
+                              "UserS3Map",
+                              {
+                                "Ref": "User"
+                              },
+                              "name"
+                            ]
+                          },
+                          ".codedeploy"
+                        ]
+                      ]
+                    },
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws:s3:::",
+                          {
+                            "Fn::FindInMap": [
+                              "UserS3Map",
+                              {
+                                "Ref": "User"
+                              },
+                              "name"
+                            ]
+                          },
+                          ".codedeploy/*"
+                        ]
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
           }
+        ],
+        "ManagedPolicyArns":[
+          "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
+          "arn:aws:iam::aws:policy/CloudWatchAgentAdminPolicy"
         ],
         "Tags": [
           {
@@ -980,6 +1082,7 @@
         "VPCInternetGateway"
       ]
     },
+<<<<<<< HEAD
 
     "WebAPPSNS":{
       "Type" : "AWS::SNS::Topic",
@@ -1071,6 +1174,158 @@
           }
         }],
         "ManagedPolicyArns":["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]
+=======
+    "WebAppCodeDeployApplication":{
+      "Type":"AWS::CodeDeploy::Application",
+      "Properties":{
+        "ApplicationName":"webapp",
+        "ComputePlatform":"Server",
+        "Tags":[{
+          "Key":"Name",
+          "Value":{"Ref":"Name"}
+        }]
+      }
+    },
+    "WebappDeploymentGroup":{
+      "Type":"AWS::CodeDeploy::DeploymentGroup",
+      "Properties":{
+        "ApplicationName":{
+          "Ref":"WebAppCodeDeployApplication"
+        },
+        "ServiceRoleArn":{
+          "Fn::GetAtt":"CodeDeployServiceRole.Arn"
+        },
+        "DeploymentConfigName":"CodeDeployDefault.AllAtOnce",
+        "DeploymentGroupName":"webapp",
+        "AutoScalingGroups":[{"Ref":"AppServerAutoScalingGroup"}]
+      },
+      "DependsOn":["WebAppCodeDeployApplication","AppServerAutoScalingGroup","CodeDeployServiceRole"]
+    },
+    "CodeDeployServiceRole":{
+      "Type":"AWS::IAM::Role",
+      "Properties":{
+        "AssumeRolePolicyDocument":{
+          "Version":"2012-10-17",
+          "Statement":[{
+            "Effect":"Allow",
+            "Principal":{"Service":["codedeploy.amazonaws.com"]},
+            "Action":["sts:AssumeRole"]
+          }]
+        },
+        "Policies":[
+          {"PolicyName":"allow-autoscaling",
+            "PolicyDocument":{
+              "Version":"2012-10-17",
+              "Statement":[
+                {"Effect":"Allow",
+                  "Action":[
+                    "ec2:*","autoscaling:*"
+                  ],
+                "Resource":"*"}
+              ]
+            }}
+        ]
+      }
+    },
+    "CloudWatchLogGroup":{
+      "Type":"AWS::Logs::LogGroup",
+      "Properties":{
+        "LogGroupName":"webapp-metrics",
+        "RetentionInDays":1,
+        "Tags":[
+          {"Key":"Name","Value":
+          {"Ref":"Name"}}
+        ]
+      }
+    },
+    "CloudWatchLogStream":{
+      "Type": "AWS::Logs::LogStream",
+      "Properties":{
+        "LogGroupName":"webapp-metrics",
+        "LogStreamName":"webapp"
+      },
+      "DependsOn":["CloudWatchLogGroup"]
+    },
+    "GHS3Policy":{
+      "Type":"AWS::IAM::ManagedPolicy",
+      "Properties":{
+        "Description":"perms to copy deployment folder to s3",
+        "PolicyDocument":{
+          "Version":"2012-10-17",
+          "Statement":[
+            {"Effect":"Allow",
+            "Action":["s3:PutObject","s3:ListBucket"],
+          "Resource":[{
+            "Fn::Join": [
+              "",
+              [
+                "arn:aws:s3:::",
+                {
+                  "Fn::FindInMap": [
+                    "UserS3Map",
+                    {
+                      "Ref": "User"
+                    },
+                    "name"
+                  ]
+                },
+                ".codedeploy/*"
+              ]
+            ]
+          },
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:aws:s3:::",
+                {
+                  "Fn::FindInMap": [
+                    "UserS3Map",
+                    {
+                      "Ref": "User"
+                    },
+                    "name"
+                  ]
+                },
+                ".codedeploy"
+              ]
+            ]
+          }]}
+          ]
+        },
+        "ManagedPolicyName":"ghArtifactUpload",
+        "Users":["gh_demo_user"]
+      }
+    }
+    ,
+    "GHCodeDeployPolicy":{
+      "Type":"AWS::IAM::ManagedPolicy",
+      "Properties":{
+        "Description":"perms to call code deploy",
+        "PolicyDocument":{
+          "Version":"2012-10-17",
+          "Statement":[
+            {"Effect":"Allow",
+            "Action":["codedeploy:CreateDeployment",
+              "codedeploy:GetDeployment"],
+            "Resource":["*"]},
+            {"Effect":"Allow",
+              "Action":["codedeploy:GetDeploymentConfig",
+                "codedeploy:GetDeployment"],
+              "Resource":[{
+                "Fn::Sub":"arn:aws:codedeploy:us-east-1:${AccountId}:deploymentconfig:CodeDeployDefault.AllAtOnce"
+              }]},
+              {"Effect":"Allow",
+                "Action":["codedeploy:GetApplicationRevision",
+                  "codedeploy:RegisterApplicationRevision"],
+                "Resource":[{
+                  "Fn::Sub":"arn:aws:codedeploy:us-east-1:${AccountId}:application:webapp"
+                }]}
+          ]
+        },
+        "ManagedPolicyName":"githubActionsCodeDeployAPI",
+        "Users":["gh_demo_user"]
+>>>>>>> d079ed2d953941f08ba5850d32e00a01ff1df87f
       }
     }
 
