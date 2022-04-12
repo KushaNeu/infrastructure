@@ -1082,8 +1082,6 @@
         "VPCInternetGateway"
       ]
     },
-<<<<<<< HEAD
-
     "WebAPPSNS":{
       "Type" : "AWS::SNS::Topic",
       "Properties" : {
@@ -1174,7 +1172,8 @@
           }
         }],
         "ManagedPolicyArns":["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]
-=======
+        }
+      },
     "WebAppCodeDeployApplication":{
       "Type":"AWS::CodeDeploy::Application",
       "Properties":{
@@ -1325,9 +1324,8 @@
         },
         "ManagedPolicyName":"githubActionsCodeDeployAPI",
         "Users":["gh_demo_user"]
->>>>>>> d079ed2d953941f08ba5850d32e00a01ff1df87f
-      }
     }
+  }
 
   },
   "Outputs": {
