@@ -82,6 +82,11 @@
     "AccountId": {
       "Description": "organization account id",
       "Type": "String"
+    },
+    "dynamoDBTable":{
+      "Description": "organization account id",
+      "Type": "String",
+      "Default":"userVerification"
     }
   },
   "Mappings": {
@@ -603,63 +608,6 @@
                 [
                   "#!/bin/bash",
                   "cd",
-                  "rm  config/mysql.config",
-                  "touch  config/mysql.config",
-                  "cat >> config/mysql.config << 'EOF'",
-                  {
-                    "Fn::Join": [
-                      "",
-                      [
-                        "{\"bucketName\":\"",
-                        {
-                          "Ref": "S3BucketRandomString"
-                        },
-                        ".",
-                        {
-                          "Fn::FindInMap": [
-                            "UserS3Map",
-                            {
-                              "Ref": "User"
-                            },
-                            "name"
-                          ]
-                        },
-                        ".dheerajreddy.me\","
-                      ]
-                    ]
-                  },
-                  {
-                    "Fn::Join": [
-                      "",
-                      [
-                        "\"topicARN\":\"",
-                        {
-                          "Fn::GetAtt": "WebAPPSNS.arn"
-                        },
-                        "\","
-                      ]
-                    ]
-                  },
-                  {
-                    "Fn::Join": [
-                      "",
-                      [
-                        "\"dbHost\":\"",
-                        {
-                          "Fn::GetAtt": "RDSInstance.Endpoint.Address"
-                        },
-                        "\","
-                      ]
-                    ]
-                  },
-                  {
-                    "Fn::Sub": "\"dbUser\":\"${MysqlUserName}\","
-                  },
-                  {
-                    "Fn::Sub": "\"dbPass\":\"${MysqlPassword}\"}"
-                  },
-                  "EOF",
-                  "chmod 777 config/mysql.config",
                   "rm  /tmp/mysql.config",
                   "touch  /tmp/mysql.config",
                   "cat >> /tmp/mysql.config << 'EOF'",
@@ -707,9 +655,39 @@
                     "Fn::Join": [
                       "",
                       [
+                        "{\"fromEmail\":\"no-reply@",
+                        {
+                          "Fn::FindInMap": [
+                            "UserS3Map",
+                            {
+                              "Ref": "User"
+                            },
+                            "name"
+                          ]
+                        },
+                        ".dheerajreddy.me\","
+                      ]
+                    ]
+                  },
+                  {
+                    "Fn::Join": [
+                      "",
+                      [
                         "\"dbHost\":\"",
                         {
                           "Fn::GetAtt": "RDSInstance.Endpoint.Address"
+                        },
+                        "\","
+                      ]
+                    ]
+                  },
+                  {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "\"dynamoDBTable\":\"",
+                        {
+                          "Ref": "dynamoDBTable"
                         },
                         "\","
                       ]
@@ -1144,9 +1122,9 @@
       "Properties": {
         "Code": {
           "S3Bucket": {
-            "Fn::Sub": "${EnvironmentName}.email.accountVerification"
+            "Fn::Sub": "prod.emailverification.lambda"
           },
-          "S3Key": "emailUser.zip"
+          "S3Key": "lambda.zip"
         },
         "Description": "Emails the TTL link to the user for account verification",
         "Environment": {
@@ -1254,7 +1232,9 @@
             "KeyType": "RANGE"
           }
         ],
-        "TableName": "userVerification",
+        "TableName": {
+          "Ref":"dynamoDBTable"
+        },
         "Tags": [
           {
             "Key": "Name",
@@ -1426,6 +1406,66 @@
           ]
         },
         "ManagedPolicyName": "ghArtifactUpload",
+        "Users": [
+          "gh_demo_user"
+        ]
+      }
+    },
+    "GHS3PolicyForLambda": {
+      "Type": "AWS::IAM::ManagedPolicy",
+      "Properties": {
+        "Description": "perms to copy deployment folder to s3",
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:PutObject",
+                "s3:ListBucket"
+              ],
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:aws:s3:::",
+                      {
+                        "Fn::FindInMap": [
+                          "UserS3Map",
+                          {
+                            "Ref": "User"
+                          },
+                          "name"
+                        ]
+                      },
+                      ".emailverification.lambda/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:aws:s3:::",
+                      {
+                        "Fn::FindInMap": [
+                          "UserS3Map",
+                          {
+                            "Ref": "User"
+                          },
+                          "name"
+                        ]
+                      },
+                      ".emailverification.lambda"
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "ManagedPolicyName": "gh_lambda_s3",
         "Users": [
           "gh_demo_user"
         ]
