@@ -74,9 +74,19 @@
       "Description": "Public Domain Name",
       "Type": "String"
     },
-    "AccountId":{
-      "Description":"organization account id",
-      "Type":"String"
+    "SEStopicArn": {
+      "Description": "mail domain",
+      "Type":"String",
+      "Default":"prod.dheerajreddy.me"
+    },
+    "AccountId": {
+      "Description": "organization account id",
+      "Type": "String"
+    },
+    "dynamoDBTable":{
+      "Description": "organization account id",
+      "Type": "String",
+      "Default":"userVerification"
     }
   },
   "Mappings": {
@@ -598,51 +608,6 @@
                 [
                   "#!/bin/bash",
                   "cd",
-                  "rm  config/mysql.config",
-                  "touch  config/mysql.config",
-                  "cat >> config/mysql.config << 'EOF'",
-                  {
-                    "Fn::Join": [
-                      "",
-                      [
-                        "{\"bucketName\":\"",
-                        {
-                          "Ref": "S3BucketRandomString"
-                        },
-                        ".",
-                        {
-                          "Fn::FindInMap": [
-                            "UserS3Map",
-                            {
-                              "Ref": "User"
-                            },
-                            "name"
-                          ]
-                        },
-                        ".dheerajreddy.me\","
-                      ]
-                    ]
-                  },
-                  {
-                    "Fn::Join": [
-                      "",
-                      [
-                        "\"dbHost\":\"",
-                        {
-                          "Fn::GetAtt": "RDSInstance.Endpoint.Address"
-                        },
-                        "\","
-                      ]
-                    ]
-                  },
-                  {
-                    "Fn::Sub": "\"dbUser\":\"${MysqlUserName}\","
-                  },
-                  {
-                    "Fn::Sub": "\"dbPass\":\"${MysqlPassword}\"}"
-                  },
-                  "EOF",
-                  "chmod 777 config/mysql.config",
                   "rm  /tmp/mysql.config",
                   "touch  /tmp/mysql.config",
                   "cat >> /tmp/mysql.config << 'EOF'",
@@ -672,9 +637,57 @@
                     "Fn::Join": [
                       "",
                       [
+                        "{\"domain\":\"",
+                        {
+                          "Fn::FindInMap": [
+                            "UserS3Map",
+                            {
+                              "Ref": "User"
+                            },
+                            "name"
+                          ]
+                        },
+                        ".dheerajreddy.me\","
+                      ]
+                    ]
+                  },
+                  {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "{\"fromEmail\":\"no-reply@",
+                        {
+                          "Fn::FindInMap": [
+                            "UserS3Map",
+                            {
+                              "Ref": "User"
+                            },
+                            "name"
+                          ]
+                        },
+                        ".dheerajreddy.me\","
+                      ]
+                    ]
+                  },
+                  {
+                    "Fn::Join": [
+                      "",
+                      [
                         "\"dbHost\":\"",
                         {
                           "Fn::GetAtt": "RDSInstance.Endpoint.Address"
+                        },
+                        "\","
+                      ]
+                    ]
+                  },
+                  {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "\"dynamoDBTable\":\"",
+                        {
+                          "Ref": "dynamoDBTable"
                         },
                         "\","
                       ]
@@ -959,7 +972,7 @@
             }
           }
         ],
-        "ManagedPolicyArns":[
+        "ManagedPolicyArns": [
           "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
           "arn:aws:iam::aws:policy/CloudWatchAgentAdminPolicy"
         ],
@@ -1079,156 +1092,432 @@
         "VPCInternetGateway"
       ]
     },
-    "WebAppCodeDeployApplication":{
-      "Type":"AWS::CodeDeploy::Application",
-      "Properties":{
-        "ApplicationName":"webapp",
-        "ComputePlatform":"Server",
-        "Tags":[{
-          "Key":"Name",
-          "Value":{"Ref":"Name"}
-        }]
-      }
-    },
-    "WebappDeploymentGroup":{
-      "Type":"AWS::CodeDeploy::DeploymentGroup",
-      "Properties":{
-        "ApplicationName":{
-          "Ref":"WebAppCodeDeployApplication"
-        },
-        "ServiceRoleArn":{
-          "Fn::GetAtt":"CodeDeployServiceRole.Arn"
-        },
-        "DeploymentConfigName":"CodeDeployDefault.AllAtOnce",
-        "DeploymentGroupName":"webapp",
-        "AutoScalingGroups":[{"Ref":"AppServerAutoScalingGroup"}]
+    "WebAPPSNS": {
+      "Type": "AWS::SNS::Topic",
+      "Properties": {
+        "DisplayName": "My First WebApp SNS",
+        "Subscription": [
+          {
+            "Endpoint": {
+              "Fn::GetAtt": "EmailLambda.Arn"
+            },
+            "protocol": "lambda"
+          }
+        ],
+        "Tags": [
+          {
+            "Name": {
+              "Ref": "Name"
+            }
+          }
+        ],
+        "TopicName": "WebAppSNS"
       },
-      "DependsOn":["WebAppCodeDeployApplication","AppServerAutoScalingGroup","CodeDeployServiceRole"]
+      "DependsOn": [
+        "EmailLambda"
+      ]
     },
-    "CodeDeployServiceRole":{
-      "Type":"AWS::IAM::Role",
-      "Properties":{
-        "AssumeRolePolicyDocument":{
-          "Version":"2012-10-17",
-          "Statement":[{
-            "Effect":"Allow",
-            "Principal":{"Service":["codedeploy.amazonaws.com"]},
-            "Action":["sts:AssumeRole"]
-          }]
+    "EmailLambda": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Fn::Sub": "prod.emailverification.lambda"
+          },
+          "S3Key": "lambda.zip"
         },
-        "Policies":[
-          {"PolicyName":"allow-autoscaling",
-            "PolicyDocument":{
-              "Version":"2012-10-17",
-              "Statement":[
-                {"Effect":"Allow",
-                  "Action":[
-                    "ec2:*","autoscaling:*"
-                  ],
-                "Resource":"*"}
-              ]
-            }}
+        "Description": "Emails the TTL link to the user for account verification",
+        "Environment": {
+          "Variables": {
+            "domainName": {
+              "Ref": "SEStopicArn"
+            }
+          }
+        },
+        "FunctionName": "index.handler",
+        "Handler": "index.handler",
+        "PackageType": "Zip",
+        "Role": {
+          "Fn::GetAtt": "EmailLambdaFunctionRole.Arn"
+        },
+        "Runtime": "nodejs17.x",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Ref": "Name"
+            }
+          }
         ]
-      }
-    },
-    "CloudWatchLogGroup":{
-      "Type":"AWS::Logs::LogGroup",
-      "Properties":{
-        "LogGroupName":"webapp-metrics",
-        "RetentionInDays":1,
-        "Tags":[
-          {"Key":"Name","Value":
-          {"Ref":"Name"}}
-        ]
-      }
-    },
-    "CloudWatchLogStream":{
-      "Type": "AWS::Logs::LogStream",
-      "Properties":{
-        "LogGroupName":"webapp-metrics",
-        "LogStreamName":"webapp"
       },
-      "DependsOn":["CloudWatchLogGroup"]
+      "DependsOn": "EmailLambdaFunctionRole"
     },
-    "GHS3Policy":{
-      "Type":"AWS::IAM::ManagedPolicy",
-      "Properties":{
-        "Description":"perms to copy deployment folder to s3",
-        "PolicyDocument":{
-          "Version":"2012-10-17",
-          "Statement":[
-            {"Effect":"Allow",
-            "Action":["s3:PutObject","s3:ListBucket"],
-          "Resource":[{
-            "Fn::Join": [
-              "",
-              [
-                "arn:aws:s3:::",
+    "EmailLambdaInvokePermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Ref": "handler"
+        },
+        "Principal": "sns.amazonaws.com"
+      },
+      "DependsOn": [
+        "EmailLambda"
+      ]
+    },
+    "EmailLambdaFunctionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "Description": "iam role for email lambda function",
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "LambdaSESemailVerifyPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
                 {
-                  "Fn::FindInMap": [
-                    "UserS3Map",
-                    {
-                      "Ref": "User"
-                    },
-                    "name"
-                  ]
-                },
-                ".codedeploy/*"
+                  "Effect": "Allow",
+                  "Action": [
+                    "ses:SendEmail",
+                    "ses:SendRawEmail"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "arn:aws:ses:us-east-1:${AccountId}:identity/${SEStopicArn}"
+                  }
+                }
               ]
-            ]
+            }
+          }
+        ],
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ]
+      }
+    },
+    "DynamoDBTable": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "email",
+            "AttributeType": "S"
           },
           {
-            "Fn::Join": [
-              "",
-              [
-                "arn:aws:s3:::",
+            "AttributeName": "token",
+            "AttributeType": "N"
+          }
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+        "KeySchema": [
+          {
+            "AttributeName": "email",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "token",
+            "KeyType": "RANGE"
+          }
+        ],
+        "TableName": {
+          "Ref":"dynamoDBTable"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Ref": "Name"
+            }
+          }
+        ],
+        "TimeToLiveSpecification": {
+          "AttributeName": "ttl",
+          "Enabled": true
+        }
+      }
+    },
+    "WebAppCodeDeployApplication": {
+      "Type": "AWS::CodeDeploy::Application",
+      "Properties": {
+        "ApplicationName": "webapp",
+        "ComputePlatform": "Server",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Ref": "Name"
+            }
+          }
+        ]
+      }
+    },
+    "WebappDeploymentGroup": {
+      "Type": "AWS::CodeDeploy::DeploymentGroup",
+      "Properties": {
+        "ApplicationName": {
+          "Ref": "WebAppCodeDeployApplication"
+        },
+        "ServiceRoleArn": {
+          "Fn::GetAtt": "CodeDeployServiceRole.Arn"
+        },
+        "DeploymentConfigName": "CodeDeployDefault.AllAtOnce",
+        "DeploymentGroupName": "webapp",
+        "AutoScalingGroups": [
+          {
+            "Ref": "AppServerAutoScalingGroup"
+          }
+        ]
+      },
+      "DependsOn": [
+        "WebAppCodeDeployApplication",
+        "AppServerAutoScalingGroup",
+        "CodeDeployServiceRole"
+      ]
+    },
+    "CodeDeployServiceRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "codedeploy.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "allow-autoscaling",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
                 {
-                  "Fn::FindInMap": [
-                    "UserS3Map",
-                    {
-                      "Ref": "User"
-                    },
-                    "name"
+                  "Effect": "Allow",
+                  "Action": [
+                    "ec2:*",
+                    "autoscaling:*"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "CloudWatchLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "webapp-metrics",
+        "RetentionInDays": 1,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Ref": "Name"
+            }
+          }
+        ]
+      }
+    },
+    "CloudWatchLogStream": {
+      "Type": "AWS::Logs::LogStream",
+      "Properties": {
+        "LogGroupName": "webapp-metrics",
+        "LogStreamName": "webapp"
+      },
+      "DependsOn": [
+        "CloudWatchLogGroup"
+      ]
+    },
+    "GHS3Policy": {
+      "Type": "AWS::IAM::ManagedPolicy",
+      "Properties": {
+        "Description": "perms to copy deployment folder to s3",
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:PutObject",
+                "s3:ListBucket"
+              ],
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:aws:s3:::",
+                      {
+                        "Fn::FindInMap": [
+                          "UserS3Map",
+                          {
+                            "Ref": "User"
+                          },
+                          "name"
+                        ]
+                      },
+                      ".codedeploy/*"
+                    ]
                   ]
                 },
-                ".codedeploy"
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:aws:s3:::",
+                      {
+                        "Fn::FindInMap": [
+                          "UserS3Map",
+                          {
+                            "Ref": "User"
+                          },
+                          "name"
+                        ]
+                      },
+                      ".codedeploy"
+                    ]
+                  ]
+                }
               ]
-            ]
-          }]}
+            }
           ]
         },
-        "ManagedPolicyName":"ghArtifactUpload",
-        "Users":["gh_demo_user"]
+        "ManagedPolicyName": "ghArtifactUpload",
+        "Users": [
+          "gh_demo_user"
+        ]
       }
-    }
-    ,
-    "GHCodeDeployPolicy":{
-      "Type":"AWS::IAM::ManagedPolicy",
-      "Properties":{
-        "Description":"perms to call code deploy",
-        "PolicyDocument":{
-          "Version":"2012-10-17",
-          "Statement":[
-            {"Effect":"Allow",
-            "Action":["codedeploy:CreateDeployment",
-              "codedeploy:GetDeployment"],
-            "Resource":["*"]},
-            {"Effect":"Allow",
-              "Action":["codedeploy:GetDeploymentConfig",
-                "codedeploy:GetDeployment"],
-              "Resource":[{
-                "Fn::Sub":"arn:aws:codedeploy:us-east-1:${AccountId}:deploymentconfig:CodeDeployDefault.AllAtOnce"
-              }]},
-              {"Effect":"Allow",
-                "Action":["codedeploy:GetApplicationRevision",
-                  "codedeploy:RegisterApplicationRevision"],
-                "Resource":[{
-                  "Fn::Sub":"arn:aws:codedeploy:us-east-1:${AccountId}:application:webapp"
-                }]}
+    },
+    "GHS3PolicyForLambda": {
+      "Type": "AWS::IAM::ManagedPolicy",
+      "Properties": {
+        "Description": "perms to copy deployment folder to s3",
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:PutObject",
+                "s3:ListBucket"
+              ],
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:aws:s3:::",
+                      {
+                        "Fn::FindInMap": [
+                          "UserS3Map",
+                          {
+                            "Ref": "User"
+                          },
+                          "name"
+                        ]
+                      },
+                      ".emailverification.lambda/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:aws:s3:::",
+                      {
+                        "Fn::FindInMap": [
+                          "UserS3Map",
+                          {
+                            "Ref": "User"
+                          },
+                          "name"
+                        ]
+                      },
+                      ".emailverification.lambda"
+                    ]
+                  ]
+                }
+              ]
+            }
           ]
         },
-        "ManagedPolicyName":"githubActionsCodeDeployAPI",
-        "Users":["gh_demo_user"]
+        "ManagedPolicyName": "gh_lambda_s3",
+        "Users": [
+          "gh_demo_user"
+        ]
+      }
+    },
+    "GHCodeDeployPolicy": {
+      "Type": "AWS::IAM::ManagedPolicy",
+      "Properties": {
+        "Description": "perms to call code deploy",
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "codedeploy:CreateDeployment",
+                "codedeploy:GetDeployment"
+              ],
+              "Resource": [
+                "*"
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "codedeploy:GetDeploymentConfig",
+                "codedeploy:GetDeployment"
+              ],
+              "Resource": [
+                {
+                  "Fn::Sub": "arn:aws:codedeploy:us-east-1:${AccountId}:deploymentconfig:CodeDeployDefault.AllAtOnce"
+                }
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "codedeploy:GetApplicationRevision",
+                "codedeploy:RegisterApplicationRevision"
+              ],
+              "Resource": [
+                {
+                  "Fn::Sub": "arn:aws:codedeploy:us-east-1:${AccountId}:application:webapp"
+                }
+              ]
+            }
+          ]
+        },
+        "ManagedPolicyName": "githubActionsCodeDeployAPI",
+        "Users": [
+          "gh_demo_user"
+        ]
       }
     }
   },
