@@ -76,17 +76,17 @@
     },
     "SEStopicArn": {
       "Description": "mail domain",
-      "Type":"String",
-      "Default":"prod.dheerajreddy.me"
+      "Type": "String",
+      "Default": "prod.dheerajreddy.me"
     },
     "AccountId": {
       "Description": "organization account id",
       "Type": "String"
     },
-    "dynamoDBTable":{
+    "dynamoDBTable": {
       "Description": "organization account id",
       "Type": "String",
-      "Default":"userVerification"
+      "Default": "userVerification"
     }
   },
   "Mappings": {
@@ -637,7 +637,7 @@
                     "Fn::Join": [
                       "",
                       [
-                        "{\"domain\":\"",
+                        "\"domain\":\"",
                         {
                           "Fn::FindInMap": [
                             "UserS3Map",
@@ -655,7 +655,7 @@
                     "Fn::Join": [
                       "",
                       [
-                        "{\"fromEmail\":\"no-reply@",
+                        "\"fromEmail\":\"no-reply@",
                         {
                           "Fn::FindInMap": [
                             "UserS3Map",
@@ -697,7 +697,10 @@
                     "Fn::Sub": "\"dbUser\":\"${MysqlUserName}\","
                   },
                   {
-                    "Fn::Sub": "\"dbPass\":\"${MysqlPassword}\"}"
+                    "Fn::Sub": "\"dbPass\":\"${MysqlPassword}\","
+                  },
+                  {
+                    "Fn::Sub": "\"topicARN\":\"${WebAPPSNS}\"}"
                   },
                   "EOF",
                   "chmod 777 /tmp/mysql.config",
@@ -970,11 +973,29 @@
                 }
               ]
             }
+          },
+          {
+            "PolicyName": "snsPublishAccess",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sns:Publish"
+                  ],
+                  "Resource": [
+                    {"Ref":"WebAPPSNS"}
+                  ]
+                }
+              ]
+            }
           }
         ],
         "ManagedPolicyArns": [
           "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
-          "arn:aws:iam::aws:policy/CloudWatchAgentAdminPolicy"
+          "arn:aws:iam::aws:policy/CloudWatchAgentAdminPolicy",
+          "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
         ],
         "Tags": [
           {
@@ -1101,12 +1122,13 @@
             "Endpoint": {
               "Fn::GetAtt": "EmailLambda.Arn"
             },
-            "protocol": "lambda"
+            "Protocol": "lambda"
           }
         ],
         "Tags": [
           {
-            "Name": {
+            "Key":"Name",
+            "Value": {
               "Ref": "Name"
             }
           }
@@ -1134,13 +1156,13 @@
             }
           }
         },
-        "FunctionName": "index.handler",
+        "FunctionName": "handler",
         "Handler": "index.handler",
         "PackageType": "Zip",
         "Role": {
           "Fn::GetAtt": "EmailLambdaFunctionRole.Arn"
         },
-        "Runtime": "nodejs17.x",
+        "Runtime": "nodejs14.x",
         "Tags": [
           {
             "Key": "Name",
@@ -1156,9 +1178,7 @@
       "Type": "AWS::Lambda::Permission",
       "Properties": {
         "Action": "lambda:InvokeFunction",
-        "FunctionName": {
-          "Ref": "handler"
-        },
+        "FunctionName":  "handler",
         "Principal": "sns.amazonaws.com"
       },
       "DependsOn": [
@@ -1218,7 +1238,7 @@
           },
           {
             "AttributeName": "token",
-            "AttributeType": "N"
+            "AttributeType": "S"
           }
         ],
         "BillingMode": "PAY_PER_REQUEST",
@@ -1233,7 +1253,7 @@
           }
         ],
         "TableName": {
-          "Ref":"dynamoDBTable"
+          "Ref": "dynamoDBTable"
         },
         "Tags": [
           {
