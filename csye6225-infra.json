@@ -556,6 +556,37 @@
         "Protocol": "HTTP"
       }
     },
+    "APPServerEncryptionKey": {
+      "Type": "AWS::KMS::Key",
+      "Properties": {
+        "KeyPolicy": {
+          "Version": "2012-10-17",
+          "Id": "webapp-key-2",
+          "Statement": [
+            {
+              "Sid": "Key for DB encryption",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:aws:iam::",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":root"
+                    ]
+                  ]
+                }
+              },
+              "Action": "kms:*",
+              "Resource": "*"
+            }
+          ]
+        }
+      }
+    },
     "AutoScalingGroupTemplate": {
       "Type": "AWS::EC2::LaunchTemplate",
       "DependsOn": [
@@ -597,7 +628,9 @@
               "Ebs": {
                 "VolumeType": "gp2",
                 "DeleteOnTermination": true,
-                "VolumeSize": "20"
+                "VolumeSize": "20",
+                "Encrypted":true,
+                "KmsKeyId":{"Ref":"APPServerEncryptionKey"}
               }
             }
           ],
@@ -985,7 +1018,9 @@
                     "sns:Publish"
                   ],
                   "Resource": [
-                    {"Ref":"WebAPPSNS"}
+                    {
+                      "Ref": "WebAPPSNS"
+                    }
                   ]
                 }
               ]
@@ -1076,6 +1111,37 @@
         }
       }
     },
+    "RDSEncryptionKey": {
+      "Type": "AWS::KMS::Key",
+      "Properties": {
+        "KeyPolicy": {
+          "Version": "2012-10-17",
+          "Id": "webapp-key-1",
+          "Statement": [
+            {
+              "Sid": "Key for DB encryption",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:aws:iam::",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":root"
+                    ]
+                  ]
+                }
+              },
+              "Action": "kms:*",
+              "Resource": "*"
+            }
+          ]
+        }
+      }
+    },
     "RDSInstance": {
       "Type": "AWS::RDS::DBInstance",
       "Properties": {
@@ -1086,6 +1152,10 @@
         "Engine": "MySQL",
         "EngineVersion": "8.0.16",
         "AllocatedStorage": "5",
+        "StorageEncrypted":true,
+        "KmsKeyId": {
+          "Ref": "RDSEncryptionKey"
+        },
         "MasterUsername": {
           "Ref": "MysqlUserName"
         },
@@ -1127,7 +1197,7 @@
         ],
         "Tags": [
           {
-            "Key":"Name",
+            "Key": "Name",
             "Value": {
               "Ref": "Name"
             }
@@ -1178,7 +1248,7 @@
       "Type": "AWS::Lambda::Permission",
       "Properties": {
         "Action": "lambda:InvokeFunction",
-        "FunctionName":  "handler",
+        "FunctionName": "handler",
         "Principal": "sns.amazonaws.com"
       },
       "DependsOn": [
