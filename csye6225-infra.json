@@ -463,7 +463,7 @@
         "HostedZoneName": {
           "Ref": "DomainName"
         },
-        "AliasTarget": {
+        "AliasTarget": { 
           "DNSName": {
             "Fn::GetAtt": "PublicLoadBalancer.DNSName"
           },
